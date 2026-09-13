@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AguacateIA — Detector de Enfermedades</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --soil:       #3b2a1a;
+      --bark:       #5c3d1e;
+      --moss:       #3a5c2a;
+      --leaf:       #4e7c35;
+      --sage:       #7a9e5f;
+      --cream:      #f5f0e8;
+      --parchment:  #ede5d0;
+      --sand:       #c8b89a;
+      --rust:       #a0522d;
+      --gold:       #c8922a;
+      --anthracnose:#6b3fa0;
+      --scab:       #b86820;
+      --healthy:    #2e7d3e;
+      --font-serif: 'Playfair Display', Georgia, serif;
+      --font-sans:  'DM Sans', system-ui, sans-serif;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      background-color: var(--cream);
+      background-image:
+        radial-gradient(ellipse at 0% 0%, rgba(74,111,50,0.12) 0%, transparent 50%),
+        radial-gradient(ellipse at 100% 100%, rgba(59,42,26,0.10) 0%, transparent 50%),
+        url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23a09070' fill-opacity='0.04'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0;
+    }
+
+    /* ── HEADER ── */
+    .site-header {
+      width: 100%;
+      background-color: var(--soil);
+      background-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M40 0 Q50 20 40 40 Q30 20 40 0Z'/%3E%3C/g%3E%3C/svg%3E");
+      padding: 20px 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 3px solid var(--gold);
+    }
+
+    .site-header .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      background: var(--leaf);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+      border: 2px solid var(--gold);
+    }
+
+    .brand-name {
+      font-family: var(--font-serif);
+      font-size: 1.6rem;
+      font-weight: 900;
+      color: var(--cream);
+      letter-spacing: -0.01em;
+    }
+
+    .brand-name span {
+      color: var(--gold);
+    }
+
+    .brand-tagline {
+      font-size: 0.72rem;
+      color: var(--sand);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .header-badge {
+      background: rgba(200,146,42,0.15);
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      font-size: 0.72rem;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: 20px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* ── MAIN LAYOUT ── */
+    .main {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 0;
+      width: 100%;
+      max-width: 1280px;
+      min-height: calc(100vh - 89px);
+    }
+
+    /* ── LEFT PANEL ── */
+    .panel-left {
+      background: var(--parchment);
+      border-right: 1px solid var(--sand);
+      padding: 40px 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      position: relative;
+    }
+
+    .panel-left::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 180px;
+      background: linear-gradient(to top, rgba(59,42,26,0.04), transparent);
+      pointer-events: none;
+    }
+
+    .section-label {
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--bark);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--sand);
+    }
+
+    /* Drop zone */
+    .dropzone {
+      border: 2px dashed var(--sage);
+      border-radius: 12px;
+      padding: 32px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      background: rgba(255,255,255,0.5);
+    }
+
+    .dropzone:hover, .dropzone.drag-over {
+      border-color: var(--moss);
+      background: rgba(78,124,53,0.06);
+    }
+
+    .dropzone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .dz-avocado {
+      font-size: 2.8rem;
+      display: block;
+      margin-bottom: 10px;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+    }
+
+    .dz-text {
+      font-family: var(--font-serif);
+      font-size: 1rem;
+      color: var(--moss);
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .dz-sub {
+      font-size: 0.78rem;
+      color: var(--bark);
+      opacity: 0.7;
+    }
+
+    /* Preview */
+    .preview-grid {
+      display: none;
+      gap: 12px;
+    }
+
+    .preview-grid.visible {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .preview-card {
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--sand);
+      background: #fff;
+    }
+
+    .preview-card-label {
+      font-size: 0.65rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--bark);
+      padding: 6px 10px;
+      background: var(--parchment);
+      border-bottom: 1px solid var(--sand);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .preview-card img {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .preview-skeleton {
+      width: 100%;
+      height: 150px;
+      background: linear-gradient(90deg, #e8e0d0 25%, #d8d0c0 50%, #e8e0d0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      display: none;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* Analyze button */
+    .btn-analyze {
+      display: none;
+      width: 100%;
+      padding: 15px 20px;
+      background: var(--moss);
+      color: var(--cream);
+      font-family: var(--font-sans);
+      font-size: 0.9rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-analyze::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 60%);
+    }
+
+    .btn-analyze:hover { background: var(--leaf); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(58,92,42,0.3); }
+    .btn-analyze:active { transform: translateY(0); }
+    .btn-analyze:disabled { opacity: 0.5; cursor: default; transform: none; box-shadow: none; }
+
+    /* Loader */
+    .loader { display: none; }
+    .loader-bar {
+      height: 3px;
+      background: var(--parchment);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .loader-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--moss), var(--gold));
+      border-radius: 2px;
+      animation: loadpulse 1.8s ease-in-out infinite;
+      width: 60%;
+    }
+    @keyframes loadpulse {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(260%); }
+    }
+    .loader-text {
+      font-size: 0.78rem;
+      color: var(--bark);
+      text-align: center;
+    }
+
+    /* Error */
+    .error-box {
+      display: none;
+      background: #fdf0ee;
+      border: 1px solid #d4856a;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 0.82rem;
+      color: #8b3a20;
+    }
+
+    /* ── RIGHT PANEL ── */
+    .panel-right {
+      padding: 40px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    /* Empty state */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      color: var(--sand);
+      text-align: center;
+      padding: 60px 40px;
+    }
+
+    .empty-state .es-icon {
+      font-size: 5rem;
+      opacity: 0.3;
+      display: block;
+    }
+
+    .empty-state h2 {
+      font-family: var(--font-serif);
+      font-size: 1.6rem;
+      color: var(--bark);
+      opacity: 0.4;
+    }
+
+    .empty-state p {
+      font-size: 0.85rem;
+      color: var(--bark);
+      opacity: 0.4;
+      max-width: 280px;
+      line-height: 1.6;
+    }
+
+    /* Disease legend */
+    .legend {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: var(--bark);
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Result card */
+    .result-card { display: none; animation: fadeUp 0.4s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+    .result-hero {
+      border-radius: 16px;
+      padding: 36px 40px;
+      position: relative;
+      overflow: hidden;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .result-hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='120' height='120' viewBox='0 0 120 120' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='100' cy='20' r='60' fill='white' fill-opacity='0.04'/%3E%3Ccircle cx='20' cy='100' r='40' fill='white' fill-opacity='0.04'/%3E%3C/svg%3E");
+    }
+
+    .result-hero.healthy     { background: linear-gradient(135deg, #2e7d3e 0%, #4caf50 100%); }
+    .result-hero.anthracnose { background: linear-gradient(135deg, #4a2070 0%, #7b3fa0 100%); }
+    .result-hero.scab        { background: linear-gradient(135deg, #8b4513 0%, #d2691e 100%); }
+
+    .hero-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .hero-status {
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      opacity: 0.75;
+      margin-bottom: 6px;
+    }
+
+    .hero-name {
+      font-family: var(--font-serif);
+      font-size: 2.4rem;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-name-es {
+      font-size: 1rem;
+      opacity: 0.8;
+      margin-top: 4px;
+    }
+
+    .hero-conf-circle {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      border: 2px solid rgba(255,255,255,0.3);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .conf-pct {
+      font-family: var(--font-serif);
+      font-size: 1.3rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .conf-label {
+      font-size: 0.6rem;
+      opacity: 0.7;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .hero-desc {
+      font-size: 0.85rem;
+      line-height: 1.65;
+      opacity: 0.88;
+      border-top: 1px solid rgba(255,255,255,0.2);
+      padding-top: 16px;
+    }
+
+    /* Rembg info */
+    .proc-info {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75rem;
+      color: var(--moss);
+      background: rgba(78,124,53,0.08);
+      border: 1px solid rgba(78,124,53,0.2);
+      border-radius: 6px;
+      padding: 8px 14px;
+    }
+
+    .proc-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--leaf);
+      flex-shrink: 0;
+    }
+
+    /* Probability bars */
+    .prob-section {}
+    .prob-title {
+      font-family: var(--font-serif);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--soil);
+      margin-bottom: 16px;
+    }
+
+    .prob-bars { display: flex; flex-direction: column; gap: 14px; }
+
+    .prob-row {
+      display: grid;
+      grid-template-columns: 140px 1fr 52px;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .prob-label {
+      font-size: 0.82rem;
+      color: var(--bark);
+      text-align: right;
+      font-weight: 500;
+    }
+
+    .prob-track {
+      height: 8px;
+      background: var(--sand);
+      border-radius: 4px;
+      overflow: hidden;
+      opacity: 0.4;
+    }
+
+    .prob-track.active { opacity: 1; }
+
+    .prob-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.9s cubic-bezier(0.16,1,0.3,1);
+    }
+
+    .prob-fill.healthy     { background: linear-gradient(90deg, #2e7d3e, #66bb6a); }
+    .prob-fill.anthracnose { background: linear-gradient(90deg, #4a2070, #9c4dcc); }
+    .prob-fill.scab        { background: linear-gradient(90deg, #8b4513, #e07b39); }
+
+    .prob-pct {
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--soil);
+    }
+
+    /* Footer */
+    .site-footer {
+      width: 100%;
+      background: var(--soil);
+      border-top: 1px solid var(--bark);
+      padding: 16px 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .footer-text {
+      font-size: 0.72rem;
+      color: var(--sand);
+      letter-spacing: 0.04em;
+    }
+
+    .footer-model {
+      font-size: 0.72rem;
+      color: var(--gold);
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="site-header">
+  <div class="brand">
+    <div class="brand-icon">🥑</div>
+    <div>
+      <div class="brand-name">Aguacate<span>IA</span></div>
+      <div class="brand-tagline">Sistema de diagnóstico fitosanitario</div>
+    </div>
+  </div>
+  <div class="header-badge">VGG16 · Transfer Learning</div>
+</header>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- LEFT: upload + controls -->
+  <aside class="panel-left">
+
+    <div class="section-label">Imagen de análisis</div>
+
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp"/>
+      <span class="dz-avocado">🥑</span>
+      <div class="dz-text">Arrastra una imagen aquí</div>
+      <div class="dz-sub">o haz clic para seleccionar · JPG · PNG · WEBP</div>
+    </div>
+
+    <div class="preview-grid" id="preview-grid">
+      <div class="preview-card">
+        <div class="preview-card-label">📷 Original</div>
+        <img id="preview-original" src="" alt="Original"/>
+      </div>
+      <div class="preview-card">
+        <div class="preview-card-label">✂️ Sin fondo</div>
+        <div class="preview-skeleton" id="preview-skeleton"></div>
+        <img id="preview-processed" src="" alt="Procesada" style="display:none; width:100%; height:150px; object-fit:cover;"/>
+      </div>
+    </div>
+
+    <button class="btn-analyze" id="btn-analyze" onclick="predict()">
+      🔍 &nbsp; Analizar aguacate
+    </button>
+
+    <div class="loader" id="loader">
+      <div class="loader-bar"><div class="loader-fill"></div></div>
+      <div class="loader-text" id="loader-text">Removiendo fondo con rembg...</div>
+    </div>
+
+    <div class="error-box" id="error-box"></div>
+
+    <div class="section-label" style="margin-top: auto;">Categorías detectadas</div>
+
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#2e7d3e;"></div>
+        Healthy — Sano
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#d2691e;"></div>
+        Scab — Roña
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#7b3fa0;"></div>
+        Anthracnose — Antracnosis
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- RIGHT: results -->
+  <section class="panel-right">
+
+    <div class="empty-state" id="empty-state">
+      <span class="es-icon">🌿</span>
+      <h2>Esperando imagen</h2>
+      <p>Sube una foto del aguacate en el panel izquierdo para iniciar el análisis fitosanitario.</p>
+    </div>
+
+    <div class="result-card" id="result-card">
+
+      <div class="result-hero" id="result-hero">
+        <div class="hero-top">
+          <div>
+            <div class="hero-status" id="hero-status">Diagnóstico</div>
+            <div class="hero-name" id="hero-name"></div>
+            <div class="hero-name-es" id="hero-name-es"></div>
+          </div>
+          <div class="hero-conf-circle">
+            <div class="conf-pct" id="conf-pct"></div>
+            <div class="conf-label">Confianza</div>
+          </div>
+        </div>
+        <div class="hero-desc" id="hero-desc"></div>
+      </div>
+
+      <div class="proc-info" id="proc-info">
+        <div class="proc-dot"></div>
+        <span>Fondo removido automáticamente con rembg · imagen recortada y normalizada</span>
+      </div>
+
+      <div class="prob-section">
+        <div class="prob-title">Distribución de probabilidades</div>
+        <div class="prob-bars" id="prob-bars"></div>
+      </div>
+
+    </div>
+
+  </section>
+</main>
+
+<!-- FOOTER -->
+<footer class="site-footer">
+  <div class="footer-text">Tancítaro, Michoacán · Proyecto de visión computacional agrícola</div>
+  <div class="footer-model">CNN + VGG16 · rembg U2Net · FastAPI</div>
+</footer>
+
+<script>
+  const API = '/predict';
+
+  const DESCRIPTIONS = {
+    Healthy:     'El aguacate no presenta signos visibles de enfermedad. Se encuentra en buen estado fitosanitario y es apto para continuar su desarrollo normal.',
+    Scab:        'Se detecta Roña (Scab): enfermedad fúngica causada por Sphaceloma perseae que produce manchas corchosas en la superficie del fruto y hojas jóvenes.',
+    Anthracnose: 'Se detecta Antracnosis: causada por Colletotrichum gloeosporioides. Produce lesiones oscuras y hundidas en la piel del fruto, comprometiendo su calidad.'
+  };
+
+  const CSS_CLASS = { Healthy: 'healthy', Anthracnose: 'anthracnose', Scab: 'scab' };
+  const LABELS_ES = { Healthy: 'Healthy · Sano', Scab: 'Scab · Roña', Anthracnose: 'Anthracnose · Antracnosis' };
+
+  const fileInput = document.getElementById('file-input');
+  const dropzone  = document.getElementById('dropzone');
+
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) showPreview(fileInput.files[0]); });
+  dropzone.addEventListener('dragover',  e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault(); dropzone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f) { fileInput.files = e.dataTransfer.files; showPreview(f); }
+  });
+
+  function showPreview(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('preview-original').src = e.target.result;
+      document.getElementById('preview-processed').style.display = 'none';
+      document.getElementById('preview-skeleton').style.display  = 'none';
+      document.getElementById('preview-grid').classList.add('visible');
+      document.getElementById('btn-analyze').style.display = 'block';
+      document.getElementById('result-card').style.display = 'none';
+      document.getElementById('empty-state').style.display = 'none';
+      document.getElementById('error-box').style.display   = 'none';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  const LOADER_STEPS = [
+    [0,    'Removiendo fondo con rembg...'],
+    [2800, 'Recortando y centrando el aguacate...'],
+    [4200, 'Clasificando con VGG16...']
+  ];
+  let stepTimers = [];
+
+  function startLoader() {
+    stepTimers.forEach(clearTimeout);
+    stepTimers = LOADER_STEPS.map(([delay, text]) =>
+      setTimeout(() => { document.getElementById('loader-text').textContent = text; }, delay)
+    );
+  }
+
+  async function predict() {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    const btn     = document.getElementById('btn-analyze');
+    const loader  = document.getElementById('loader');
+    const errBox  = document.getElementById('error-box');
+    const resCard = document.getElementById('result-card');
+    const empty   = document.getElementById('empty-state');
+
+    btn.disabled           = true;
+    loader.style.display   = 'block';
+    errBox.style.display   = 'none';
+    resCard.style.display  = 'none';
+    empty.style.display    = 'none';
+
+    document.getElementById('preview-skeleton').style.display  = 'block';
+    document.getElementById('preview-processed').style.display = 'none';
+
+    startLoader();
+
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const resp = await fetch(API, { method: 'POST', body: form });
+      if (!resp.ok) { const e = await resp.json(); throw new Error(e.detail || `HTTP ${resp.status}`); }
+      const data = await resp.json();
+
+      if (data.imagen_procesada) {
+        const img = document.getElementById('preview-processed');
+        img.src = 'data:image/jpeg;base64,' + data.imagen_procesada;
+        img.style.display = 'block';
+      }
+      document.getElementById('preview-skeleton').style.display = 'none';
+
+      renderResult(data);
+    } catch (e) {
+      document.getElementById('preview-skeleton').style.display = 'none';
+      errBox.textContent     = '❌ Error: ' + e.message;
+      errBox.style.display   = 'block';
+      empty.style.display    = 'flex';
+    } finally {
+      btn.disabled         = false;
+      loader.style.display = 'none';
+      stepTimers.forEach(clearTimeout);
+    }
+  }
+
+  function renderResult(data) {
+    const cls = CSS_CLASS[data.prediccion] || '';
+
+    // Hero
+    const hero = document.getElementById('result-hero');
+    hero.className = 'result-hero ' + cls;
+    document.getElementById('hero-name').textContent    = data.prediccion.toUpperCase();
+    document.getElementById('hero-name-es').textContent = data.prediccion_es;
+    document.getElementById('conf-pct').textContent     = data.confianza + '%';
+    document.getElementById('hero-desc').textContent    = DESCRIPTIONS[data.prediccion] || '';
+
+    // Proc info
+    const pi = document.getElementById('proc-info');
+    pi.style.display = data.fondo_removido ? 'flex' : 'none';
+
+    // Probability bars
+    const barsEl = document.getElementById('prob-bars');
+    barsEl.innerHTML = '';
+    const sorted = Object.entries(data.probabilidades).sort((a, b) => b[1] - a[1]);
+
+    sorted.forEach(([clase, pct]) => {
+      const isWinner = clase === data.prediccion;
+      const row = document.createElement('div');
+      row.className = 'prob-row';
+      row.innerHTML = `
+        <div class="prob-label">${LABELS_ES[clase] || clase}</div>
+        <div class="prob-track${isWinner ? ' active' : ''}">
+          <div class="prob-fill ${CSS_CLASS[clase] || ''}" style="width:0%"></div>
+        </div>
+        <div class="prob-pct">${pct}%</div>`;
+      barsEl.appendChild(row);
+      requestAnimationFrame(() => {
+        row.querySelector('.prob-fill').style.width = pct + '%';
+      });
+    });
+
+    document.getElementById('result-card').style.display = 'block';
+    document.getElementById('empty-state').style.display  = 'none';
+  }
+</script>
+</body>
+</html>

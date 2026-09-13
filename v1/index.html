@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🥑 Detector de Enfermedades en Aguacate</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #1a2e1a 0%, #2d5a27 50%, #1a3a1a 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 24px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.35);
+      padding: 40px;
+      width: 100%;
+      max-width: 540px;
+    }
+
+    .header { text-align: center; margin-bottom: 28px; }
+    .header .logo { font-size: 3rem; }
+    .header h1 { font-size: 1.5rem; color: #1a5c1a; margin-top: 8px; font-weight: 700; }
+    .header p  { color: #888; font-size: 0.85rem; margin-top: 4px; }
+
+    /* Drop zone */
+    .dropzone {
+      border: 2.5px dashed #7bbf5e;
+      border-radius: 16px;
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s;
+      position: relative;
+      background: #f4faf0;
+    }
+    .dropzone:hover, .dropzone.drag-over {
+      border-color: #2d8a2d;
+      background: #e8f5e2;
+    }
+    .dropzone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%;
+    }
+    .dropzone .dz-icon { font-size: 2.6rem; }
+    .dropzone p { color: #4a8a3a; margin-top: 10px; font-size: 0.95rem; }
+    .dropzone small { color: #aaa; font-size: 0.78rem; }
+
+    /* Preview */
+    #preview-wrap { display: none; margin-top: 20px; text-align: center; }
+    #preview {
+      max-width: 100%; max-height: 280px;
+      border-radius: 14px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+      object-fit: cover;
+    }
+
+    /* Button */
+    #btn-predict {
+      display: none; width: 100%; margin-top: 20px;
+      padding: 14px;
+      background: linear-gradient(135deg, #2d8a2d, #5cb85c);
+      color: #fff; font-size: 1rem; font-weight: 700;
+      border: none; border-radius: 12px; cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    #btn-predict:hover   { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(45,138,45,0.4); }
+    #btn-predict:active  { transform: translateY(0); }
+    #btn-predict:disabled { opacity: 0.6; cursor: default; transform: none; }
+
+    /* Loader */
+    .loader { display: none; text-align: center; margin-top: 14px; color: #2d8a2d; font-size: 0.9rem; }
+
+    /* Error */
+    #error {
+      display: none; background: #fff0f0; color: #c0392b;
+      border-radius: 12px; padding: 14px 18px; margin-top: 16px;
+      font-size: 0.88rem; text-align: center;
+    }
+
+    /* Result */
+    #result { display: none; margin-top: 24px; border-radius: 16px; overflow: hidden; }
+
+    .result-header {
+      padding: 20px;
+      text-align: center;
+      color: #fff;
+    }
+    .result-header.healthy     { background: linear-gradient(135deg, #27ae60, #2ecc71); }
+    .result-header.anthracnose { background: linear-gradient(135deg, #8e44ad, #9b59b6); }
+    .result-header.scab        { background: linear-gradient(135deg, #e67e22, #f39c12); }
+
+    .res-emoji  { font-size: 2.6rem; }
+    .res-name   { font-size: 1.5rem; font-weight: 800; margin-top: 4px; }
+    .res-es     { font-size: 0.92rem; opacity: 0.88; margin-top: 2px; }
+    .res-conf   { font-size: 1rem; margin-top: 6px; opacity: 0.92; }
+
+    /* Descripción */
+    .res-desc {
+      background: #f8fdf8;
+      padding: 14px 18px;
+      font-size: 0.85rem;
+      color: #555;
+      line-height: 1.55;
+      border-bottom: 1px solid #e8f0e8;
+    }
+
+    /* Barras */
+    .bars { padding: 16px 20px; background: #f4faf0; }
+    .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .bar-label { width: 120px; font-size: 0.82rem; color: #555; text-align: right; flex-shrink: 0; }
+    .bar-track { flex: 1; background: #c8e6c9; border-radius: 99px; height: 10px; overflow: hidden; }
+    .bar-fill  { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #2d8a2d, #5cb85c); transition: width 0.8s ease; }
+    .bar-pct   { width: 48px; font-size: 0.8rem; color: #888; flex-shrink: 0; }
+
+    .footer { text-align: center; margin-top: 24px; font-size: 0.75rem; color: #bbb; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="header">
+    <div class="logo">🥑</div>
+    <h1>Detector de Enfermedades en Aguacate</h1>
+    <p>CNN + Transfer Learning (VGG16) · 3 categorías</p>
+  </div>
+
+  <div class="dropzone" id="dropzone">
+    <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp"/>
+    <div class="dz-icon">🖼️</div>
+    <p>Arrastra una imagen aquí<br>o <strong>haz clic</strong> para seleccionar</p>
+    <small>JPG · PNG · WEBP</small>
+  </div>
+
+  <div id="preview-wrap">
+    <img id="preview" src="" alt="Preview"/>
+  </div>
+
+  <button id="btn-predict" onclick="predict()">🔍 Analizar Aguacate</button>
+  <div class="loader" id="loader">⏳ Analizando imagen...</div>
+  <div id="error"></div>
+
+  <div id="result">
+    <div class="result-header" id="res-header">
+      <div class="res-emoji" id="res-emoji"></div>
+      <div class="res-name"  id="res-name"></div>
+      <div class="res-es"    id="res-es"></div>
+      <div class="res-conf"  id="res-conf"></div>
+    </div>
+    <div class="res-desc" id="res-desc"></div>
+    <div class="bars" id="res-bars"></div>
+  </div>
+
+  <div class="footer">
+    ✅ Healthy &nbsp;·&nbsp; 🟤 Scab (Roña) &nbsp;·&nbsp; 🍂 Anthracnose (Antracnosis)
+  </div>
+</div>
+
+<script>
+  const API = 'https://api-aguacate-551124884034.northamerica-south1.run.app/predict';
+
+  const DESCRIPTIONS = {
+    Healthy:     '🌿 El aguacate no presenta signos visibles de enfermedad. Se encuentra en buen estado fitosanitario.',
+    Scab:        '🟤 Se detecta Roña (Scab): enfermedad fúngica causada por <em>Sphaceloma perseae</em> que produce manchas corchosas en fruto y hojas.',
+    Anthracnose: '🍂 Se detecta Antracnosis: causada por <em>Colletotrichum gloeosporioides</em>. Produce lesiones oscuras y hundidas en la piel del fruto.'
+  };
+
+  const CSS_CLASS = { Healthy: 'healthy', Anthracnose: 'anthracnose', Scab: 'scab' };
+
+  const fileInput = document.getElementById('file-input');
+  const dropzone  = document.getElementById('dropzone');
+
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) showPreview(fileInput.files[0]); });
+  dropzone.addEventListener('dragover',  e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault(); dropzone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f) { fileInput.files = e.dataTransfer.files; showPreview(f); }
+  });
+
+  function showPreview(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('preview').src = e.target.result;
+      document.getElementById('preview-wrap').style.display = 'block';
+      document.getElementById('btn-predict').style.display  = 'block';
+      document.getElementById('result').style.display = 'none';
+      document.getElementById('error').style.display  = 'none';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function predict() {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    const btn    = document.getElementById('btn-predict');
+    const loader = document.getElementById('loader');
+    const errDiv = document.getElementById('error');
+    const resDiv = document.getElementById('result');
+
+    btn.disabled = true;
+    loader.style.display = 'block';
+    errDiv.style.display = 'none';
+    resDiv.style.display = 'none';
+
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const resp = await fetch(API, { method: 'POST', body: form });
+      if (!resp.ok) { const e = await resp.json(); throw new Error(e.detail || `HTTP ${resp.status}`); }
+      renderResult(await resp.json());
+    } catch (e) {
+      errDiv.textContent = `❌ Error: ${e.message}`;
+      errDiv.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      loader.style.display = 'none';
+    }
+  }
+
+  function renderResult(data) {
+    // Header
+    const header = document.getElementById('res-header');
+    header.className = 'result-header ' + (CSS_CLASS[data.prediccion] || '');
+    document.getElementById('res-emoji').textContent = data.emoji;
+    document.getElementById('res-name').textContent  = data.prediccion.toUpperCase();
+    document.getElementById('res-es').textContent    = data.prediccion_es;
+    document.getElementById('res-conf').textContent  = `Confianza: ${data.confianza}%`;
+
+    // Descripción
+    document.getElementById('res-desc').innerHTML = DESCRIPTIONS[data.prediccion] || '';
+
+    // Barras
+    const barsEl = document.getElementById('res-bars');
+    barsEl.innerHTML = '';
+    const sorted = Object.entries(data.probabilidades).sort((a,b) => b[1]-a[1]);
+    const LABELS_ES = { Healthy: '✅ Healthy (Sano)', Scab: '🟤 Scab (Roña)', Anthracnose: '🍂 Anthracnose' };
+
+    sorted.forEach(([clase, pct]) => {
+      const row = document.createElement('div');
+      row.className = 'bar-row';
+      row.innerHTML = `
+        <div class="bar-label">${LABELS_ES[clase] || clase}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:0%"></div></div>
+        <div class="bar-pct">${pct}%</div>`;
+      barsEl.appendChild(row);
+      requestAnimationFrame(() => { row.querySelector('.bar-fill').style.width = pct + '%'; });
+    });
+
+    document.getElementById('result').style.display = 'block';
+  }
+</script>
+</body>
+</html>

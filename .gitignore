@@ -1,0 +1,19 @@
+# Entorno virtual
+venv/
+env/
+.venv/
+
+# Cache de Python
+__pycache__/
+*.pyc
+
+# Secretos
+.env
+*.pem
+*.key
+*credentials*.json
+*service*account*.json
+
+# Basura del sistema
+Thumbs.db
+.DS_Store
